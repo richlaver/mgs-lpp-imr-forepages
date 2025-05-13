@@ -55,7 +55,7 @@ else:
     doc_folder = None
 
 # Generate a unique filename for the document register
-doc_register_filename =datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
+doc_register_filename =datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
 doc_register_path = os.path.join(doc_folder, doc_register_filename) if doc_folder else None
 
 scan_doc_register = st.button(
