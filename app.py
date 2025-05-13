@@ -2,6 +2,11 @@ import streamlit as st
 import functions as f
 import os
 import datetime
+import logging
+
+# Set up logging for production debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def downloadOnwards(doc_register_path):
     try:
@@ -19,19 +24,37 @@ if 'checkboxes' not in st.session_state:
 st.title('Weekly Report Forepage Autofill')
 st.subheader('Lantau Portfolio Project')
 
-# Input for document register download folder
-default_doc_path = os.path.expanduser("~/Downloads")
+# Use a production-safe default path
+default_doc_path = os.path.abspath(os.getcwd())  # Current working directory
+if not os.access(default_doc_path, os.W_OK):
+    default_doc_path = "/tmp"  # Fallback to /tmp if cwd is not writable
+logger.info(f"Default document register path: {default_doc_path}")
+
 doc_folder = st.text_input(
     label="Select folder to download document register",
     value=default_doc_path,
-    help="Enter the folder path where the document register Excel file will be saved."
+    help="Enter a writable folder path where the document register Excel file will be saved."
 )
 
-# Validate document register folder
+# Validate and create document register folder
 if doc_folder:
-    if not os.path.isdir(doc_folder) or not os.access(doc_folder, os.W_OK):
-        st.error("Invalid or non-writable folder for document register. Please choose a valid folder.")
+    try:
+        os.makedirs(doc_folder, exist_ok=True)  # Create folder if it doesn't exist
+        if not os.path.isdir(doc_folder):
+            st.error("Invalid folder for document register. Please choose a valid directory.")
+            doc_folder = None
+        elif not os.access(doc_folder, os.W_OK):
+            st.error("Selected folder is not writable. Please choose a folder with write permissions.")
+            doc_folder = None
+        else:
+            logger.info(f"Validated document register folder: {doc_folder}")
+    except Exception as e:
+        st.error(f"Error accessing folder: {str(e)}")
+        logger.error(f"Folder access error: {str(e)}")
         doc_folder = None
+else:
+    st.error("Please specify a folder for the document register.")
+    doc_folder = None
 
 # Generate a unique filename for the document register
 doc_register_filename = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
@@ -46,20 +69,30 @@ scan_doc_register = st.button(
 
 submission_period = None
 if st.session_state.doc_register is not None:
-    with st.form(key='submission_period_form'):
-        submission_period = st.date_input(
-            label='Select a period to extract submissions from the document register',
-            help='Selected dates are inclusive i.e. 00:00 on the start date to 23:59 on the end date',
-            value=[
-                st.session_state.doc_register['submission_date'].max() - datetime.timedelta(days=3),
-                st.session_state.doc_register['submission_date'].max()
-            ],
-            max_value=st.session_state.doc_register['submission_date'].max(),
-            format='DD/MM/YYYY'
-        )
-        confirm_period = st.form_submit_button(
-            label='Confirm period'
-        )
+    # Check if doc_register is empty or has invalid dates
+    if st.session_state.doc_register.empty or st.session_state.doc_register['submission_date'].isna().all():
+        st.error("Document register is empty or contains no valid submission dates. Please check the data source.")
+    else:
+        with st.form(key='submission_period_form'):
+            # Calculate max date (min_value removed per your fix)
+            max_date = st.session_state.doc_register['submission_date'].max()
+            default_start = max_date - datetime.timedelta(days=3)
+            # Convert to date objects if they are datetime
+            if isinstance(default_start, datetime.datetime):
+                default_start = default_start.date()
+            if isinstance(max_date, datetime.datetime):
+                max_date = max_date.date()
+
+            submission_period = st.date_input(
+                label='Select a period to extract submissions from the document register',
+                help='Selected dates are inclusive i.e. 00:00 on the start date to 23:59 on the end date',
+                value=[default_start, max_date],
+                max_value=max_date,
+                format='DD/MM/YYYY'
+            )
+            confirm_period = st.form_submit_button(
+                label='Confirm period'
+            )
 
     if confirm_period:
         doc_register_for_period = st.session_state.doc_register[
@@ -74,15 +107,30 @@ if st.session_state.doc_register is not None:
         else:
             with st.form(key='doc_selection_form'):
                 st.caption('Select submissions to generate forepages for')
-                # Input for forepage output folder
+                # Input for forepage output folder (use same default as doc_folder)
                 output_folder = st.text_input(
                     label="Select folder to save generated forepages",
                     value=default_doc_path,
-                    help="Enter the folder path where the generated Word documents will be saved."
+                    help="Enter a writable folder path where the generated Word documents will be saved."
                 )
                 # Validate output folder
-                if output_folder and (not os.path.isdir(output_folder) or not os.access(output_folder, os.W_OK)):
-                    st.error("Invalid or non-writable folder for forepages. Please choose a valid folder.")
+                if output_folder:
+                    try:
+                        os.makedirs(output_folder, exist_ok=True)
+                        if not os.path.isdir(output_folder):
+                            st.error("Invalid folder for forepages. Please choose a valid directory.")
+                            output_folder = None
+                        elif not os.access(output_folder, os.W_OK):
+                            st.error("Selected folder is not writable. Please choose a folder with write permissions.")
+                            output_folder = None
+                        else:
+                            logger.info(f"Validated forepage output folder: {output_folder}")
+                    except Exception as e:
+                        st.error(f"Error accessing forepage folder: {str(e)}")
+                        logger.error(f"Forepage folder access error: {str(e)}")
+                        output_folder = None
+                else:
+                    st.error("Please specify a folder for the forepages.")
                     output_folder = None
 
                 st.session_state.doc_register = doc_register_for_period
