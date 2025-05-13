@@ -4,7 +4,7 @@ import os
 import datetime
 import logging
 
-# Set up logging for production debugging
+# Set up logging for debugging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -12,8 +12,10 @@ def downloadOnwards(doc_register_path):
     try:
         f.downloadDocRegister(output_path=doc_register_path)
         st.session_state.doc_register = f.readDocRegister(path=doc_register_path)
+        logger.info("Document register downloaded and read successfully")
     except Exception as e:
         st.error(f"Error downloading or reading document register: {str(e)}")
+        logger.error(f"Document register error: {str(e)}")
 
 if 'doc_register' not in st.session_state:
     st.session_state.doc_register = None
@@ -25,13 +27,13 @@ st.title('Weekly Report Forepage Autofill')
 st.subheader('Lantau Portfolio Project')
 
 # Use a production-safe default path for document register
-default_doc_path = "/tmp"  # Use /tmp in Streamlit Cloud
+default_doc_path = "/tmp"  # Use /tmp for consistency
 logger.info(f"Default document register path: {default_doc_path}")
 
 doc_folder = st.text_input(
     label="Select folder to download document register",
     value=default_doc_path,
-    help="Enter a writable folder path where the document register Excel file will be saved (e.g., /tmp in production)."
+    help="Enter a writable folder path where the document register Excel file and forepages will be saved (e.g., /tmp in production)."
 )
 
 # Validate and create document register folder
@@ -55,7 +57,7 @@ else:
     doc_folder = None
 
 # Generate a unique filename for the document register
-doc_register_filename =datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
+doc_register_filename = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
 doc_register_path = os.path.join(doc_folder, doc_register_filename) if doc_folder else None
 
 scan_doc_register = st.button(
@@ -123,13 +125,13 @@ if st.session_state.doc_register is not None:
                         st.warning("No submissions selected. Please select at least one submission.")
                     else:
                         try:
-                            # Generate forepages and get zip file for download
-                            zip_data, zip_filename = f.generateForepages(selected_submissions)
+                            logger.info(f"Generating forepages for {len(selected_submissions)} submissions in {doc_folder}")
+                            zip_data, zip_filename = f.generateForepages(selected_submissions, doc_folder)
                             st.download_button(
                                 label="Download Forepages (ZIP)",
                                 data=zip_data,
                                 file_name=zip_filename,
-                                mime="zip",
+                                mime="application/zip",
                                 help="Download a ZIP file containing all generated forepages."
                             )
                             st.success("Forepages generated! Click the button above to download.")
