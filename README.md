@@ -9,6 +9,7 @@ A Streamlit app to automate the generation of forepages for weekly reports in th
 - **Customizable Output**: Allows users to select folders for downloading the document register and saving generated forepages.
 - **Date Range Selection**: Filters submissions by a user-defined date range.
 - **Intuitive Interface**: Built with Streamlit for a web-based, user-friendly experience.
+- **Download Forepages**: After selecting submissions, click "Generate forepages" to create the documents. A "Download Forepages (ZIP)" button will appear, allowing you to download a ZIP file containing all generated Word documents to your local machine.
 
 ## Requirements
 

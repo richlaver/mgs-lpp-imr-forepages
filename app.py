@@ -24,22 +24,20 @@ if 'checkboxes' not in st.session_state:
 st.title('Weekly Report Forepage Autofill')
 st.subheader('Lantau Portfolio Project')
 
-# Use a production-safe default path
-default_doc_path = os.path.abspath(os.getcwd())  # Current working directory
-if not os.access(default_doc_path, os.W_OK):
-    default_doc_path = "/tmp"  # Fallback to /tmp if cwd is not writable
+# Use a production-safe default path for document register
+default_doc_path = "/tmp"  # Use /tmp in Streamlit Cloud
 logger.info(f"Default document register path: {default_doc_path}")
 
 doc_folder = st.text_input(
     label="Select folder to download document register",
     value=default_doc_path,
-    help="Enter a writable folder path where the document register Excel file will be saved."
+    help="Enter a writable folder path where the document register Excel file will be saved (e.g., /tmp in production)."
 )
 
 # Validate and create document register folder
 if doc_folder:
     try:
-        os.makedirs(doc_folder, exist_ok=True)  # Create folder if it doesn't exist
+        os.makedirs(doc_folder, exist_ok=True)
         if not os.path.isdir(doc_folder):
             st.error("Invalid folder for document register. Please choose a valid directory.")
             doc_folder = None
@@ -57,7 +55,7 @@ else:
     doc_folder = None
 
 # Generate a unique filename for the document register
-doc_register_filename = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
+doc_register_filename =datetime.now().strftime("%Y%m%d%H%M%S") + "_nex1110-doc-register.xlsx"
 doc_register_path = os.path.join(doc_folder, doc_register_filename) if doc_folder else None
 
 scan_doc_register = st.button(
@@ -107,32 +105,6 @@ if st.session_state.doc_register is not None:
         else:
             with st.form(key='doc_selection_form'):
                 st.caption('Select submissions to generate forepages for')
-                # Input for forepage output folder (use same default as doc_folder)
-                output_folder = st.text_input(
-                    label="Select folder to save generated forepages",
-                    value=default_doc_path,
-                    help="Enter a writable folder path where the generated Word documents will be saved."
-                )
-                # Validate output folder
-                if output_folder:
-                    try:
-                        os.makedirs(output_folder, exist_ok=True)
-                        if not os.path.isdir(output_folder):
-                            st.error("Invalid folder for forepages. Please choose a valid directory.")
-                            output_folder = None
-                        elif not os.access(output_folder, os.W_OK):
-                            st.error("Selected folder is not writable. Please choose a folder with write permissions.")
-                            output_folder = None
-                        else:
-                            logger.info(f"Validated forepage output folder: {output_folder}")
-                    except Exception as e:
-                        st.error(f"Error accessing forepage folder: {str(e)}")
-                        logger.error(f"Forepage folder access error: {str(e)}")
-                        output_folder = None
-                else:
-                    st.error("Please specify a folder for the forepages.")
-                    output_folder = None
-
                 st.session_state.doc_register = doc_register_for_period
                 st.session_state.checkboxes = [
                     st.checkbox(
@@ -142,19 +114,27 @@ if st.session_state.doc_register is not None:
                     ) for _, doc in st.session_state.doc_register.iterrows()
                 ]
                 generate_forepages = st.form_submit_button(
-                    label='Generate forepages',
-                    disabled=not output_folder
+                    label='Generate forepages'
                 )
 
-                if generate_forepages and output_folder:
+                if generate_forepages:
                     selected_submissions = st.session_state.doc_register[st.session_state.checkboxes]
                     if selected_submissions.empty:
                         st.warning("No submissions selected. Please select at least one submission.")
                     else:
                         try:
-                            f.generateForepages(selected_submissions, output_folder)
-                            st.success(f"Forepages generated successfully in {output_folder}!")
+                            # Generate forepages and get zip file for download
+                            zip_data, zip_filename = f.generateForepages(selected_submissions)
+                            st.download_button(
+                                label="Download Forepages (ZIP)",
+                                data=zip_data,
+                                file_name=zip_filename,
+                                mime="zip",
+                                help="Download a ZIP file containing all generated forepages."
+                            )
+                            st.success("Forepages generated! Click the button above to download.")
                         except Exception as e:
                             st.error(f"Error generating forepages: {str(e)}")
+                            logger.error(f"Forepage generation error: {str(e)}")
                         st.session_state.doc_register = None
                         st.session_state.checkboxes = None
