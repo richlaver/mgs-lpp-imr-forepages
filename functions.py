@@ -12,7 +12,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def downloadDocRegister(output_path: str):
-    url = 'https://drive.google.com/uc?id=1Uvt9HNpA0THgVv42bu8ye-7Zif6VttwyJJ24ywZZk80'
+    # url = 'https://drive.google.com/uc?id=1Uvt9HNpA0THgVv42bu8ye-7Zif6VttwyJJ24ywZZk80'
+    url = 'https://docs.google.com/spreadsheets/d/1Uvt9HNpA0THgVv42bu8ye-7Zif6VttwyJJ24ywZZk80/export?format=xlsx&id=1Uvt9HNpA0THgVv42bu8ye-7Zif6VttwyJJ24ywZZk80'
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     gdown.download(url, output_path, quiet=False)
 
@@ -71,7 +72,7 @@ def generateForepages(selected_submissions: pd.DataFrame, doc_folder: str):
             }
             template.render(context=context)
             # Use unique filename to avoid conflicts
-            output_filename = f"{submission['doc_number']}_{timestamp}_{idx}.docx"
+            output_filename = f"{submission['doc_number']}.docx"
             output_path = os.path.join(doc_folder, output_filename)
             template.save(output_path)
             generated_files.append(output_path)
